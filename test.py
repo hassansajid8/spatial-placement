@@ -254,7 +254,15 @@ if __name__ == '__main__':
         'CRYSTAL':              {'x': 25, 'y': 14, 'w': 5, 'h': 5},
     }
 
-    is_valid = validate_placement(sample_valid_placement)
+    placements = {}
+    file_name = "output.txt"
+    with open(file_name, 'r') as file:
+        for line in file:
+            line.strip()
+            wordlist = line.split()
+            placements[wordlist[0]] = {'x': float(wordlist[1]), 'y': float(wordlist[2]), 'w': float(wordlist[3]), 'h': float(wordlist[4])}          
+
+    is_valid = validate_placement(placements)
     end_time = time.perf_counter()
     elapsed_time = end_time - start_time
     
@@ -267,12 +275,12 @@ if __name__ == '__main__':
     print("---------------------------------------")
     if is_valid:
         print("\n✅ This placement is fully valid.")
-        score_placement(sample_valid_placement)
-        plot_placement(sample_valid_placement)
+        score_placement(placements)
+        plot_placement(placements)
     else:
         print("\n❌ This placement is INVALID.")
-        score_placement(sample_valid_placement)
-        plot_placement(sample_valid_placement)
+        score_placement(placements)
+        plot_placement(placements)
 
     print("\n" + "="*50 + "\n")
 

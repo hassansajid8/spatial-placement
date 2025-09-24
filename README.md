@@ -25,6 +25,21 @@ Single Iteration Brute Force
 
 - For 5 components, the algorithm takes about ~30 ms for producing results
 
+### Running the code    
+
+- Prerequisites: python3 and matplotlib library. Recommended: Use venv 
+
+1. Run the main.py file to execute the algorithm, which produces an output.txt file 
+```bash 
+python3 main.py 
+```
+
+2. If all goes well, run the test.py file, which builds the component list from the output.txt file, validates the placement and visualizes it 
+```bash 
+python3 test.py 
+```
+
+
 
 
 

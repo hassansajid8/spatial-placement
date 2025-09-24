@@ -75,7 +75,9 @@ def distance(p1, p2):
 
 # sort components list 
 def sort_components(components: list[Component]) -> list[Component]:
-    # microbus, usbconnector, microcontroller, crystal 
+    # Sorts a components list according to their type 
+    # in this order: MICROBUS, USBCONNECTOR, MICROCONTROLLER, CRYSTAL 
+
     result: list[Component] = [] 
 
     for c in [c for c in components if c.comptype == CompType.MICROBUS]:
@@ -90,29 +92,42 @@ def sort_components(components: list[Component]) -> list[Component]:
     for c in [c for c in components if c.comptype == CompType.CRYSTAL]:
         result.append(c)
 
+    # in retrospect, there must be a better way to do this 
+
     return result
 
 placed: list[Component] = []
-occupied_rects = []
 
+# The main algorithm function 
 def algo(components: list[Component], board_dims: Tuple[int]):
-    min_com = None 
+    
+    # Approach - Single Try Brute Force 
+    # - The algorithm iterates through each component in the component list
+    # - Generates valid candidates (points) where the component can be placed 
+    # - Chooses the candidate which produces the least centre of mass score 
+    # - This function is also configured to handle rotated components which will be implemented 
+    # It is a simple, non-optimized, no-backtracking approach, but it works :) 
+
     for c in components:
         candidates = gen_candidates(c, board_dims)
         if(len(candidates) > 0):
             min_com = min(candidates, key= lambda cand: score_candidate((cand[0], cand[1], c.h if cand[2] else c.w, c.w if cand[2] else c.h), board_dims, placed))
+            
+            # if rotated i.e height = width and width = height 
             if(min_com[2]): 
                 c.w, c.h = c.h, c.w 
             place(c, (min_com[0], min_com[1]))
+
+            # keep out zone is treated as a component to simplify stuff 
             if(c.KOZ != None and min_com[3] != None):
                 koz_x, koz_y, koz_w, koz_h = min_com[3] 
                 koz_c = Component(koz_w, koz_h, CompType.KEEP_OUT_ZONE)
                 place(koz_c, (koz_x, koz_y))
-#        else:
-#            print("No possible positions found for component type " + str(c.comptype))
-#            print("Exiting program...")
-#            exit()
+        else:
+            print("No possible positions found for component type " + str(c.comptype))
 
+    # this piece of code was suggested by chatgpt and makes no difference, honestly 
+    # it basically tries slight shifts in component positions and see if it improves the overall com post-placement
     for c in placed:
         curr_com = get_com(board_dims, placed)
         if not c.edge:
@@ -124,7 +139,7 @@ def algo(components: list[Component], board_dims: Tuple[int]):
                        c.y = c.y+shift[1]
 
 
-# generate possible position candidates for a component given the constraints 
+# generate possible position candidates for a component given it's constraints 
 def gen_candidates(c: Component, board_dims: Tuple[int]) -> list:
     candidates: list[Tuple] = []
 
@@ -138,6 +153,7 @@ def gen_candidates(c: Component, board_dims: Tuple[int]) -> list:
         elif (check_overlap_comp((cx, cy, c.h, c.w), placed)):
             candidates.append((cx - c.h//2, cy - c.w//2, True))
         else: # center is occupied, generate candidates around the center 
+            # this needs a little fixing 
             angles = [0, 90, 180, 270, 45, 135, 225, 315]
             r = 6
             found = 0
@@ -153,10 +169,9 @@ def gen_candidates(c: Component, board_dims: Tuple[int]) -> list:
                         found += 1
                 r += 1 
         return candidates
-
         
     # edge constraint 
-    # generate candidates for each edge with both orientations
+    # generate candidates for each edge 
     if(c.edge):
         edges = [
                 ("left", [(0, py) for py in range(board_dims[1]+1)]),
@@ -165,6 +180,7 @@ def gen_candidates(c: Component, board_dims: Tuple[int]) -> list:
                 ("top", [(px, board_dims[0] - c.h) for px in range(board_dims[0]+1)])
             ]
 
+        # if keep out zone constraint is active (assumes parallel is not) 
         if(c.KOZ != None):
             koz_w, koz_h = c.KOZ 
             for edge, positions in edges:
@@ -217,11 +233,14 @@ def gen_candidates(c: Component, board_dims: Tuple[int]) -> list:
                                             if (py == 0 and comp.y + comp.h == board_dims[1]): candidates.append((px, py, False, None))
                                             if (py + c.h == board_dims[1] and comp.y == 0): candidates.append((px, py, False, None))
                             else:
+                                # putting this case here avoids a third for loop, but makes the code a bit messy
                                 candidates.append((px, py, False, None))
 
-    # proximity constraint 
+    # proximity constraint (also assumes edge constraint is false)
     if(c.proximity != None):
         
+        # simply checks distance between the component and the proximity component 
+        # if their centers are within 10 units, the point is valid 
         for px in range(board_dims[0]):
             for py in range(board_dims[1]):
                 if not (in_bounds((px, py, c.w, c.h), board_dims)): pass 
@@ -243,6 +262,10 @@ def gen_candidates(c: Component, board_dims: Tuple[int]) -> list:
 
 # calculate com score 
 def get_com(board_dims: Tuple[int], placements: list[Component]):
+
+    # COM score = distance between centre of mass and board center 
+    # lower the better 
+
     board_center = (board_dims[0]/2, board_dims[1]/2)
     sum_x = 0 
     sum_y = 0 
@@ -261,7 +284,7 @@ def get_com(board_dims: Tuple[int], placements: list[Component]):
     return distance((com_x, com_y), board_center)
 
 
-# calculate COM distance for a candidate 
+# calculate COM distance for a possible candidate 
 def see_com(rect: Tuple[int], board_dims: Tuple[int], placements: list[Component]):
     board_center = (board_dims[0]/2, board_dims[1]/2)
     x, y, w, h = rect 
@@ -284,7 +307,10 @@ def see_com(rect: Tuple[int], board_dims: Tuple[int], placements: list[Component
     return distance((com_x, com_y), board_center)  
 
 # calculate score for a candidate 
+# also suggested by chatgpt, doesn't make any difference in the end result 
 def score_candidate(cand, board_dims, placed):
+    # weighs in the distance of candidate (center) from the board center 
+    # rewards valid candidates closer to the center 
     com_dist = see_com(cand, board_dims, placed)
 
     cx = cand[0] + cand[2]/2 
@@ -294,6 +320,7 @@ def score_candidate(cand, board_dims, placed):
 
 # global constraints checks
 
+# check if a rectangle is complete inside the board 
 def in_bounds(rect: Tuple, board_dims: Tuple):
     x, y, w, h = rect 
     bx, by = board_dims 
@@ -301,6 +328,9 @@ def in_bounds(rect: Tuple, board_dims: Tuple):
                 x + w <= bx and 
                 y + h <= by)
 
+# check if a rectangle overlaps another component 
+# returns True if it DOESN'T OVERLAP 
+# in other words, returns true if it passes the check 
 def check_overlap_comp(point, placements: list):
     x, y, w, h = point 
     for i in range(len(placements)):
@@ -309,7 +339,7 @@ def check_overlap_comp(point, placements: list):
             return False
     return True
 
-
+# add a component to the placed list 
 def place(c: Component, point: Tuple):
     print("Placing " + str(c.comptype) + " at " + str(point))
     x, y = point
@@ -325,17 +355,15 @@ def place(c: Component, point: Tuple):
 
     c.x = x 
     c.y = y 
-    occupied_rects.append((c.x, c.y, c.w, c.h))
     placed.append(c)
     
-
+# visualize using matplotlib; OPTIONAL, for debugging purposes
 def visualize(placements: list[Component]):
     fig, ax = plt.subplots()
     ax.set_xlim(0, 50)
     ax.set_ylim(0, 50)
 
     for c in placements:
-        # set color 
         clr = 'b'
         alpha = 1
         if (c.comptype == CompType.MICROCONTROLLER): clr = 'b'
@@ -345,7 +373,6 @@ def visualize(placements: list[Component]):
         elif (c.comptype == CompType.KEEP_OUT_ZONE):
             clr = 'g'
             alpha = 0.5
-        # Create the Rectangle patch
         rect = patches.Rectangle(
             (c.x, c.y),
             c.w,
@@ -368,7 +395,6 @@ def visualize(placements: list[Component]):
             )
             ax.add_patch(circ)
 
-        # Add the patch to the axes
         ax.add_patch(rect)
 
 #    ax.invert_yaxis()
@@ -392,8 +418,10 @@ if __name__ == "__main__":
     end_time = time.time()
     print(f"Algo execution time : {(end_time - start_time):.4f} seconds")
 
-    visualize(placed)
-
+#    visualize(placed)
+    
+    # Outputs the placed components onto an output file which can then be used to 
+    # input the results into the test file for testing 
     with open("output.txt", 'w') as file:
         mb_count = 0 
         for p in placed: 

@@ -73,6 +73,25 @@ def get_center(c):
 def distance(p1, p2):
     return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
 
+# sort components list 
+def sort_components(components: list[Component]) -> list[Component]:
+    # microbus, usbconnector, microcontroller, crystal 
+    result: list[Component] = [] 
+
+    for c in [c for c in components if c.comptype == CompType.MICROBUS]:
+        result.append(c) 
+
+    for c in [c for c in components if c.comptype == CompType.USBCONNECTOR]:
+        result.append(c) 
+
+    for c in [c for c in components if c.comptype == CompType.MICROCONTROLLER]:
+        result.append(c) 
+    
+    for c in [c for c in components if c.comptype == CompType.CRYSTAL]:
+        result.append(c)
+
+    return result
+
 placed: list[Component] = []
 occupied_rects = []
 
@@ -360,13 +379,13 @@ def visualize(placements: list[Component]):
 if __name__ == "__main__":
     components = []
     
+    components.append(Component(5, 5, CompType.CRYSTAL))
     components.append(Component(5, 15, CompType.MICROBUS))
-    components.append(Component(5, 5, CompType.MICROCONTROLLER))
     components.append(Component(5, 5, CompType.USBCONNECTOR))
     components.append(Component(5, 15, CompType.MICROBUS))
-    components.append(Component(5, 5, CompType.CRYSTAL))
+    components.append(Component(5, 5, CompType.MICROCONTROLLER))
 
-#    components.sort(key=lambda obj: obj.active_constraints())
+    components = sort_components(components)
 
     start_time = time.time()
     algo(components, (50, 50))
